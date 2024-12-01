@@ -30,7 +30,7 @@ class PlayerSprite(pygame.sprite.Sprite):
         self.jumpForce = -15
         self.shortJumpCutoff = 0.3 * self.jumpForce
         self.yVelocity = 0
-        self.isJumping = False
+        self.isAirborne = False
         self.jumpKeyHeld = False
         self.push_force = 1000
         self.pull_force = 1000
@@ -44,21 +44,23 @@ class PlayerSprite(pygame.sprite.Sprite):
         self.ironpulling = False
 
     def moveRight(self):
+        accerlationValue = self.acceleration if not self.isAirborne else self.acceleration/2
         if self.xVelocity < 0:  # Decelerate before reversing direction
             self.xVelocity += self.deceleration
         else:  # Accelerate normally
             self.xVelocity = min(
-                self.xVelocity + self.acceleration, self.moveSpeed)
+                self.xVelocity + accerlationValue, self.moveSpeed)
 
     def moveLeft(self):
+        accerlationValue = self.acceleration if not self.isAirborne else self.acceleration/2
         if self.xVelocity > 0:  # Decelerate before reversing direction
             self.xVelocity -= self.deceleration
         else:  # Accelerate normally
             self.xVelocity = max(
-                self.xVelocity - self.acceleration, -self.moveSpeed)
+                self.xVelocity - accerlationValue, -self.moveSpeed)
 
     def stop(self):
-        if not self.isJumping:
+        if not self.isAirborne:
             # Gradually reduce velocity to zero
             if self.xVelocity > 0:
                 self.xVelocity -= self.deceleration
@@ -70,9 +72,9 @@ class PlayerSprite(pygame.sprite.Sprite):
                     self.xVelocity = 0
 
     def jump(self):
-        if not self.isJumping:
+        if not self.isAirborne:
             self.yVelocity = self.jumpForce
-            self.isJumping = True
+            self.isAirborne = True
             self.jumpKeyHeld = True
 
     def releaseJump(self):
@@ -144,12 +146,13 @@ class PlayerSprite(pygame.sprite.Sprite):
                         obj.yVelocity = 0  # Stop vertical movement when in contact
 
     def update(self):
-        print("x velocity: ", self.xVelocity)
-        print("y velocity: ", self.yVelocity)
+
+        # Check if player is airborne and ensure flag is set correctly
+        self.isAirborne = False if self.rect.y >= self.screenHeight - self.height else True
         # Apply gravity
         self.yVelocity += 1
         # Update horizontal position based on velocity
-        self.rect.x += self.xVelocity
+        self.rect.x += int(self.xVelocity)
         # Update vertical position
         self.rect.y += int(self.yVelocity)
 
@@ -157,10 +160,10 @@ class PlayerSprite(pygame.sprite.Sprite):
         if self.rect.y >= self.screenHeight - self.height:
             self.rect.y = self.screenHeight - self.height
             self.yVelocity = 0
-            self.isJumping = False
+            self.isAirborne = False
 
-        # Apply air resistance when in the air (not grounded)
-        if not self.isJumping and self.steelpushing:
+        # Apply friction when grounded and pushing
+        if not self.isAirborne and self.steelpushing:
             self.xVelocity *= 0.9 * (1 / self.mass)  # Friction when grounded
         else:
             # Apply air resistance to horizontal and vertical velocities
@@ -172,7 +175,7 @@ class PlayerSprite(pygame.sprite.Sprite):
 
 
 class Object(pygame.sprite.Sprite):
-    def __init__(self, x, y, width, height, screenWidth, screenHeight, is_metallic=False, mass=1.0):
+    def __init__(self, x, y, width, height, screenWidth, screenHeight, is_metallic=False, mass=1.0, suspended=False):
         super().__init__()
         self.image = pygame.Surface([width, height])
         self.image.fill((200, 200, 200) if is_metallic else (100, 100, 100))
@@ -192,10 +195,12 @@ class Object(pygame.sprite.Sprite):
         self.mass = mass
         self.frictionCoeff = 0.1  # Friction coefficient
         self.maxVelocity = 10
+        self.suspended = suspended
 
     def applyForce(self, force_x, force_y):
-        self.xVelocity += force_x / self.mass
-        self.yVelocity += force_y / self.mass
+        if not self.suspended:
+            self.xVelocity += force_x / self.mass
+            self.yVelocity += force_y / self.mass
 
     def update(self):
         # Apply friction to the object's motion
@@ -206,7 +211,8 @@ class Object(pygame.sprite.Sprite):
         self.applyForce(friction_force_x, friction_force_y)
 
         # Apply gravity
-        self.yVelocity += 1
+        if not self.suspended:
+            self.yVelocity += 1
 
         # Update horizontal position based on velocity
         self.rect.x += self.xVelocity
@@ -216,7 +222,7 @@ class Object(pygame.sprite.Sprite):
         if self.rect.y >= self.screenHeight - self.height:
             self.rect.y = self.screenHeight - self.height
             self.yVelocity = 0
-            self.isJumping = False
+            self.isAirborne = False
 
         screen_rect = pygame.Rect(
             0, 0, self.screenWidth, self.screenHeight)

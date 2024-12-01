@@ -10,8 +10,8 @@ from Classes import PlayerSprite, Object
 # Define some global settings variables
 FRAMERATE_CAP = 60
 DISPLAY_FPS = True
-WIDTH = 1920
-HEIGHT = 1080
+WIDTH = 1080
+HEIGHT = 720
 
 
 pygame.init()
@@ -44,6 +44,7 @@ objectsGroup = pg.sprite.Group()
 objectsGroup.add(Object(400, 300, 20, 20,  WIDTH, HEIGHT, True, 0.5))
 objectsGroup.add(Object(500, 300, 20, 20, WIDTH, HEIGHT, True))
 objectsGroup.add(Object(600, 300, 20, 20, WIDTH, HEIGHT, True, 2))
+objectsGroup.add(Object(600, 300, 20, 20, WIDTH, HEIGHT, True, 2, True))
 
 
 all_sprites.add(playerSprite, *objectsGroup)
@@ -101,7 +102,6 @@ while running:
         playerSprite.steelpush(objectsGroup)
     if playerSprite.ironpulling:
         playerSprite.ironpull(objectsGroup)
-    
 
     all_sprites.update()
     all_sprites.draw(screen)
