@@ -77,14 +77,14 @@ while running:
                 playerSprite.releaseJump()
         if event.type == pg.MOUSEBUTTONDOWN:
             if event.button == 1:
-                playerSprite.steelpushing = True
+                playerSprite.aSteel = True
             if event.button == 3:
-                playerSprite.ironpulling = True
+                playerSprite.aIron = True
         if event.type == pg.MOUSEBUTTONUP:
             if event.button == 1:
-                playerSprite.steelpushing = False
+                playerSprite.aSteel = False
             if event.button == 3:
-                playerSprite.ironpulling = False
+                playerSprite.aIron = False
 
     # Handle movement input
     keys = pygame.key.get_pressed()
@@ -96,9 +96,9 @@ while running:
         playerSprite.stop()  # Decelerate when no key is pressed
 
     # Perform steelpush
-    if playerSprite.steelpushing:
+    if playerSprite.aSteel:
         playerSprite.steelpush(objectsGroup)
-    if playerSprite.ironpulling:
+    if playerSprite.aIron:
         playerSprite.ironpull(objectsGroup)
 
     all_sprites.update()

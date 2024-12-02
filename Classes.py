@@ -1,5 +1,6 @@
 import pygame
 
+
 class PlayerSprite(pygame.sprite.Sprite):
     def __init__(self, color, height, width, screenWidth, screenHeight, maxPushRange=200):
         super().__init__()
@@ -37,8 +38,27 @@ class PlayerSprite(pygame.sprite.Sprite):
 
         # Spikes
         self.spikes = ["AllomancySteel", None]
-        self.steelpushing = False
-        self.ironpulling = False
+
+        # Allomancy flags
+        self.aSteel = False
+        self.aIron = False
+        self.aAluminium = False
+        self.aBendalloy = False
+        self.aCadmium = False
+        self.aBrass = False
+        self.aZinc = False
+        self.aChromium = False
+        self.aCopper = False
+        self.aDuralumin = False
+        self.aTin = False
+
+        # Feruchemy flags
+        self.fIron = 0
+        self.fSteel = 0
+        self.fPewter = 0
+        self.fGold = 0
+        self.fBrass = 0
+        self.fChromium = 0
 
     def moveRight(self):
         accelerationValue = self.acceleration if not self.isAirborne else self.acceleration/2
@@ -160,7 +180,7 @@ class PlayerSprite(pygame.sprite.Sprite):
             self.isAirborne = False
 
         # Apply friction when grounded and pushing
-        if not self.isAirborne and self.steelpushing:
+        if not self.isAirborne and self.aSteel:
             self.xVelocity *= 0.9 * (1 / self.mass)  # Friction when grounded
         else:
             # Apply air resistance to horizontal and vertical velocities
