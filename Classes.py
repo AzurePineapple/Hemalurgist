@@ -44,20 +44,20 @@ class PlayerSprite(pygame.sprite.Sprite):
         self.ironpulling = False
 
     def moveRight(self):
-        accerlationValue = self.acceleration if not self.isAirborne else self.acceleration/2
+        accelerationValue = self.acceleration if not self.isAirborne else self.acceleration/2
         if self.xVelocity < 0:  # Decelerate before reversing direction
             self.xVelocity += self.deceleration
         else:  # Accelerate normally
             self.xVelocity = min(
-                self.xVelocity + accerlationValue, self.moveSpeed)
+                self.xVelocity + accelerationValue, self.moveSpeed)
 
     def moveLeft(self):
-        accerlationValue = self.acceleration if not self.isAirborne else self.acceleration/2
+        accelerationValue = self.acceleration if not self.isAirborne else self.acceleration/2
         if self.xVelocity > 0:  # Decelerate before reversing direction
             self.xVelocity -= self.deceleration
         else:  # Accelerate normally
             self.xVelocity = max(
-                self.xVelocity - accerlationValue, -self.moveSpeed)
+                self.xVelocity - accelerationValue, -self.moveSpeed)
 
     def stop(self):
         if not self.isAirborne:
