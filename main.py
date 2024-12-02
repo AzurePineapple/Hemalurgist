@@ -1,5 +1,3 @@
-from tokenize import String
-from xmlrpc.client import MAXINT
 import pygame as pg
 import pygame.display
 import pygame.event
