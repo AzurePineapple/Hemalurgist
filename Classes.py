@@ -1,7 +1,4 @@
-import random
-from turtle import xcor
 import pygame
-
 
 class PlayerSprite(pygame.sprite.Sprite):
     def __init__(self, color, height, width, screenWidth, screenHeight, maxPushRange=200):
