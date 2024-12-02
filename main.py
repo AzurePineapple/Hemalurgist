@@ -41,7 +41,7 @@ playerSprite.rect.y = 300
 objectsGroup = pg.sprite.Group()
 objectsGroup.add(Object(400, 300, 20, 20,  WIDTH, HEIGHT, True, 0.5))
 objectsGroup.add(Object(500, 300, 20, 20, WIDTH, HEIGHT, True))
-objectsGroup.add(Object(600, 300, 20, 20, WIDTH, HEIGHT, True, 2))
+objectsGroup.add(Object(600, 300, 20, 20, WIDTH, HEIGHT, True, 20))
 objectsGroup.add(Object(600, 300, 20, 20, WIDTH, HEIGHT, True, 2, True))
 
 
@@ -72,9 +72,22 @@ while running:
         if event.type == pg.KEYDOWN:
             if event.key == pg.K_SPACE:
                 playerSprite.jump()
+            # Temp event triggers for working on laptop
+            if event.key == pg.K_LEFT:
+                playerSprite.aSteel = True
+            if event.key == pg.K_RIGHT:
+                playerSprite.aIron = True
+            ###############################
         if event.type == pg.KEYUP:
             if event.key == pg.K_SPACE:
                 playerSprite.releaseJump()
+
+            # Temp event triggers for working on laptop
+            if event.key == pg.K_LEFT:
+                playerSprite.aSteel = False
+            if event.key == pg.K_RIGHT:
+                playerSprite.aIron = False
+            ################################
         if event.type == pg.MOUSEBUTTONDOWN:
             if event.button == 1:
                 playerSprite.aSteel = True
@@ -111,7 +124,7 @@ while running:
             dy = obj.rect.centery - playerSprite.rect.centery
             distance = (dx**2 + dy**2) ** 0.5
             if distance <= playerSprite.maxPushRange:
-                pygame.draw.line(screen, (100, 100, 255),
+                pygame.draw.line(screen, (100, 200, 255) if playerSprite.aSteel or playerSprite.aIron else (100, 100, 255),
                                  playerSprite.rect.center, obj.rect.center, 2)
 
     # Render blitted objects to screen

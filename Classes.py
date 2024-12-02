@@ -2,7 +2,7 @@ import pygame
 
 
 class PlayerSprite(pygame.sprite.Sprite):
-    def __init__(self, color, height, width, screenWidth, screenHeight, maxPushRange=200):
+    def __init__(self, color, height, width, screenWidth, screenHeight, maxPushRange=300):
         super().__init__()
 
         self.image = pygame.Surface([width, height])
@@ -20,7 +20,8 @@ class PlayerSprite(pygame.sprite.Sprite):
         # Player constants
         self.height = height
         self.width = width
-        self.moveSpeed = 10
+        self.moveSpeedLimit = 10
+        self.aerialMoveSpeedLimit = 20
         self.xVelocity = 0
         self.acceleration = 2
         self.deceleration = 3
@@ -66,7 +67,7 @@ class PlayerSprite(pygame.sprite.Sprite):
             self.xVelocity += self.deceleration
         else:  # Accelerate normally
             self.xVelocity = min(
-                self.xVelocity + accelerationValue, self.moveSpeed)
+                self.xVelocity + accelerationValue, self.moveSpeedLimit)
 
     def moveLeft(self):
         accelerationValue = self.acceleration if not self.isAirborne else self.acceleration/2
@@ -74,7 +75,7 @@ class PlayerSprite(pygame.sprite.Sprite):
             self.xVelocity -= self.deceleration
         else:  # Accelerate normally
             self.xVelocity = max(
-                self.xVelocity - accelerationValue, -self.moveSpeed)
+                self.xVelocity - accelerationValue, -self.moveSpeedLimit)
 
     def stop(self):
         if not self.isAirborne:
@@ -168,6 +169,17 @@ class PlayerSprite(pygame.sprite.Sprite):
         self.isAirborne = False if self.rect.y >= self.screenHeight - self.height else True
         # Apply gravity
         self.yVelocity += 1
+
+        # Ensure player is not moving faster than move speed limit
+        if self.xVelocity < 0:
+            self.xVelocity = max(self.xVelocity, -self.moveSpeedLimit)
+        elif self.xVelocity > 0:
+            self.xVelocity = min(self.xVelocity, self.moveSpeedLimit)
+        if self.yVelocity < 0:
+            self.yVelocity = max(self.yVelocity, -self.aerialMoveSpeedLimit)
+        elif self.yVelocity > 0:
+            self.yVelocity = min(self.yVelocity, self.aerialMoveSpeedLimit)
+
         # Update horizontal position based on velocity
         self.rect.x += int(self.xVelocity)
         # Update vertical position
