@@ -1,5 +1,8 @@
 import pygame
 
+# Define some debugging globals that will become settings later
+EASY_FERUCHEMY = True
+
 
 class PlayerSprite(pygame.sprite.Sprite):
     def __init__(self, color, height, width, screenWidth, screenHeight, maxPushRange=300):
@@ -20,11 +23,8 @@ class PlayerSprite(pygame.sprite.Sprite):
         # Player constants
         self.height = height
         self.width = width
-        self.moveSpeedLimit = 10
         self.aerialMoveSpeedLimit = 20
         self.xVelocity = 0
-        self.acceleration = 2
-        self.deceleration = 3
         self.airResistanceCoeff = 0.01
         self.jumpForce = -15
         self.shortJumpCutoff = 0.3 * self.jumpForce
@@ -35,12 +35,11 @@ class PlayerSprite(pygame.sprite.Sprite):
         self.pull_force = 1000
         self.maxForce = 4
         self.maxPushRange = maxPushRange
-        self.mass = 2
 
         # Spikes
         self.spikes = ["AllomancySteel", None]
 
-        # Allomancy flags
+        # Allomancy flags - False for not burning, True if burning
         self.aSteel = False
         self.aIron = False
         self.aAluminium = False
@@ -53,13 +52,40 @@ class PlayerSprite(pygame.sprite.Sprite):
         self.aDuralumin = False
         self.aTin = False
 
-        # Feruchemy flags
+        # Feruchemy flags - +1 indicates filling at 1st stage rate (value tbd), -3 means tapping at 3rd stage rate etc.
         self.fIron = 0
         self.fSteel = 0
         self.fPewter = 0
         self.fGold = 0
         self.fBrass = 0
         self.fChromium = 0
+
+        self.feruchemyChangeRate = 3
+
+        # Metalminds
+        self.ironMetalMind = 0
+        self.steelMetalMind = 0
+        self.pewterMetalMind = 0
+        self.goldMetalMind = 0
+        self.brassMetalMind = 0
+        self.chromiumMetalMind = 0
+
+        # All feruchemy related attributes
+
+        # Iron
+        self.mass = self.baseMass = 2
+        # Steel
+        self.moveSpeedLimit = self.baseMoveSpeedLimit = 10
+        self.acceleration = self.moveSpeedLimit / 5
+        self.deceleration = self.moveSpeedLimit / 5
+        # Pewter
+        self.strength = self.baseStrength = 5
+        # Gold
+        self.health = self.baseHealth = 100
+        # Brass
+        self.warmth = self.baseWarmth = 50
+        # Chromium
+        self.fortune = self.baseFortune = 100
 
     def moveRight(self):
         accelerationValue = self.acceleration if not self.isAirborne else self.acceleration/2
@@ -163,6 +189,70 @@ class PlayerSprite(pygame.sprite.Sprite):
                         obj.xVelocity = 0  # Stop horizontal movement when in contact
                         obj.yVelocity = 0  # Stop vertical movement when in contact
 
+    def changeMetalmindRate(self, metal, change):
+
+        match metal:
+            case "iron":
+                self.fIron += change
+
+            case _:
+                print("Invalid metal passed")
+
+    def limitFeruchemy(self):
+        """constrains values relevant to feruchemy to value ranges
+        """
+
+        # Constrains the value of each metals fill/tap rate to lie within range -3 to +3
+        self.fIron = min(max(self.fIron, -3), 3)
+        self.fSteel = min(max(self.fSteel, -3), 3)
+        self.fPewter = min(max(self.fPewter, -3), 3)
+        self.fGold = min(max(self.fGold, -3), 3)
+        self.fBrass = min(max(self.fBrass, -3), 3)
+        self.fChromium = min(max(self.fChromium, -3), 3)
+
+        # Constrains the amount of attribute stored in each metalmind
+        self.ironMetalMind = min(max(self.ironMetalMind, 0), 1000)
+        self.steelMetalMind = min(max(self.steelMetalMind, 0), 1000)
+        self.pewterMetalMind = min(max(self.pewterMetalMind, 0), 1000)
+        self.goldMetalMind = min(max(self.goldMetalMind, 0), 1000)
+        self.brassMetalMind = min(max(self.brassMetalMind, 0), 1000)
+        self.chromiumMetalMind = min(max(self.chromiumMetalMind, 0), 1000)
+
+    def changeAttributes(self):
+        """Alters feruchemical attributes when the player is tapping/filling a metalmind
+        """
+        # Iron
+
+        match self.fIron:
+            case -3:
+                self.mass = 0.25 * self.baseMass
+            case -2:
+                self.mass = 0.5 * self.baseMass
+            case -1:
+                self.mass = 0.75 * self.baseMass
+            case 0:
+                self.mass = self.baseMass
+            case 1:
+                self.mass = 2 * self.baseMass
+            case 2:
+                self.mass = 3 * self.baseMass
+            case 3:
+                self.mass = 10 * self.baseMass
+
+    def updateFeruchemy(self):
+
+        # If metalminds are full or empty and player tried to fill/tap respectively, set the stage to 0
+        if self.ironMetalMind >= 1000 and self.fIron < 0:
+            self.fIron = 0
+        elif self.ironMetalMind <= 0 and self.fIron > 0:
+            self.fIron = 0
+
+        self.changeAttributes()
+        self.ironMetalMind += self.baseMass - self.mass
+
+        # Sanity check all metalmind values
+        self.limitFeruchemy()
+
     def update(self):
 
         # Check if player is airborne and ensure flag is set correctly
@@ -201,6 +291,9 @@ class PlayerSprite(pygame.sprite.Sprite):
 
         screen_rect = pygame.Rect(0, 0, self.screenWidth, self.screenHeight)
         self.rect.clamp_ip(screen_rect)
+
+        # Do feruchemy updates
+        self.updateFeruchemy()
 
 
 class Object(pygame.sprite.Sprite):
