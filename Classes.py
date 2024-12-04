@@ -79,8 +79,8 @@ class PlayerSprite(pygame.sprite.Sprite):
         self.mass = self.baseMass = 2
         # Steel
         self.moveSpeedLimit = self.baseMoveSpeedLimit = 10
-        self.acceleration = self.moveSpeedLimit / 5
-        self.deceleration = self.moveSpeedLimit / 5
+        self.acceleration = self.baseAcceleration = self.moveSpeedLimit / 5
+        self.deceleration = self.baseDeceleration = self.moveSpeedLimit / 5
         # Pewter
         self.strength = self.baseStrength = 5
         # Gold
@@ -258,7 +258,8 @@ class PlayerSprite(pygame.sprite.Sprite):
         match metal:
             case "iron":
                 self.fIron += change
-
+            case "steel":
+                self.fSteel += change
             case _:
                 print("Invalid metal passed")
 
@@ -309,16 +310,53 @@ class PlayerSprite(pygame.sprite.Sprite):
             case 3:
                 self.mass = 10 * self.baseMass
 
-    def updateFeruchemy(self):
+        match self.fSteel:
+            case -3:
+                self.moveSpeedLimit = 0.25 * self.baseMoveSpeedLimit
+                self.acceleration = 0.25 * self.baseAcceleration
+                self.deceleration = 0.25 * self.baseDeceleration
+            case -2:
+                self.moveSpeedLimit = 0.5 * self.baseMoveSpeedLimit
+                self.acceleration = 0.5 * self.baseAcceleration
+                self.deceleration = 0.5 * self.baseDeceleration
+            case -1:
+                self.moveSpeedLimit = 0.75 * self.baseMoveSpeedLimit
+                self.acceleration = 0.75 * self.baseAcceleration
+                self.deceleration = 0.75 * self.baseDeceleration
+            case 0:
+                self.moveSpeedLimit = self.baseMoveSpeedLimit
+                self.acceleration = self.baseAcceleration
+                self.deceleration = self.baseDeceleration
+            case 1:
+                self.moveSpeedLimit = 2 * self.baseMoveSpeedLimit
+                self.acceleration = 2 * self.baseAcceleration
+                self.deceleration = 2 * self.baseDeceleration
+            case 2:
+                self.moveSpeedLimit = 3 * self.baseMoveSpeedLimit
+                self.acceleration = 3 * self.baseAcceleration
+                self.deceleration = 3 * self.baseDeceleration
+            case 3:
+                self.moveSpeedLimit = 10 * self.baseMoveSpeedLimit
+                self.acceleration = 10 * self.baseAcceleration
+                self.deceleration = 10 * self.baseDeceleration
 
+    def updateFeruchemy(self):
+        # TODO: Somehow pair the metal mind and the flags so that I can iterate through them and do some of this programatically?
+        
         # If metalminds are full or empty and player tried to fill/tap respectively, set the stage to 0
         if self.ironMetalMind >= self.metalMindCapacity and self.fIron < 0:
             self.fIron = 0
         elif self.ironMetalMind <= 0 and self.fIron > 0:
             self.fIron = 0
 
+        if self.steelMetalMind >= self.metalMindCapacity and self.fSteel < 0:
+            self.fSteel = 0
+        elif self.steelMetalMind <= 0 and self.fSteel > 0:
+            self.fSteel = 0
+
         self.changeAttributes()
         self.ironMetalMind += self.baseMass - self.mass
+        self.steelMetalMind += self.baseMoveSpeedLimit - self.moveSpeedLimit
 
         # Sanity check all metalmind values
         self.limitFeruchemy()

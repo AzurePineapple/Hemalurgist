@@ -67,19 +67,19 @@ while running:
         screen.blit(fps_text, fps_rect)
 
     ironMM_text = DEBUG_FONT.render(
-        "metalmind storage: " + str(playerSprite.ironMetalMind), True, (0, 255, 0))
+        "metalmind storage: " + str(playerSprite.steelMetalMind), True, (0, 255, 0))
     ironMM_rect = ironMM_text.get_rect()
     ironMM_rect.topleft = (80, 5)
     screen.blit(ironMM_text, ironMM_rect)
 
     stage_text = DEBUG_FONT.render(
-        "stage: " + str(playerSprite.fIron), True, (0, 255, 0))
+        "stage: " + str(playerSprite.fSteel), True, (0, 255, 0))
     stage_rect = stage_text.get_rect()
     stage_rect.topright = (1060, 5)
     screen.blit(stage_text, stage_rect)
 
     weight_text = DEBUG_FONT.render(
-        "mass:" + str(playerSprite.mass), True, (0, 255, 0))
+        "speed:" + str(playerSprite.moveSpeedLimit), True, (0, 255, 0))
     weight_rect = weight_text.get_rect()
     weight_rect.topleft = (800, 5)
     screen.blit(weight_text, weight_rect)
@@ -99,9 +99,9 @@ while running:
             if event.key == pg.K_RIGHT:
                 playerSprite.aIron = True
             if event.key == pg.K_UP:
-                playerSprite.changeMetalmindRate("iron", 1)
+                playerSprite.changeMetalmindRate("steel", 1)
             if event.key == pg.K_DOWN:
-                playerSprite.changeMetalmindRate("iron", -1)
+                playerSprite.changeMetalmindRate("steel", -1)
             ###############################
         if event.type == pg.KEYUP:
             if event.key == pg.K_SPACE:
