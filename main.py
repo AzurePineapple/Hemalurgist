@@ -8,8 +8,8 @@ from Classes import PlayerSprite, Object
 # Define some global settings variables
 FRAMERATE_CAP = 60
 DISPLAY_FPS = True
-WIDTH = 1080
-HEIGHT = 720
+WIDTH = 1920
+HEIGHT = 1080
 
 
 pygame.init()
@@ -25,9 +25,9 @@ DEBUG_FONT = pygame.font.SysFont("consolas", 20)
 clock = pygame.time.Clock()
 
 # Create and name window
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
 pygame.display.set_caption("Hemalurgist")
-
+pygame.event.set_grab(True)
 
 # Create list of all sprites
 all_sprites = pygame.sprite.Group()
@@ -42,13 +42,14 @@ objectsGroup = pg.sprite.Group()
 objectsGroup.add(Object(400, 300, 20, 20,  WIDTH, HEIGHT, True, 0.5))
 objectsGroup.add(Object(500, 300, 20, 20, WIDTH, HEIGHT, True))
 objectsGroup.add(Object(600, 300, 20, 20, WIDTH, HEIGHT, True, 20))
-objectsGroup.add(Object(600, 300, 20, 20, WIDTH, HEIGHT, True, 2, True))
+objectsGroup.add(Object(600, 400, 20, 20, WIDTH, HEIGHT, True, 2, True))
+objectsGroup.add(Object(800, 400, 20, 20, WIDTH, HEIGHT, True, 2, True))
 
 
 all_sprites.add(playerSprite, *objectsGroup)
 
 
-# Game loopd
+# Game loop
 running = True
 
 while running:
@@ -88,6 +89,8 @@ while running:
         if event.type == pg.QUIT:
             running = False
         if event.type == pg.KEYDOWN:
+            if event.key == pg.K_ESCAPE:
+                running = False
             if event.key == pg.K_SPACE:
                 playerSprite.jump()
             # Temp event triggers for working on laptop
@@ -142,17 +145,20 @@ while running:
     # if playerSprite.fIron:
         # playerSprite.ironFeruchemy(1)
 
+    # Draw all sprites
     all_sprites.update()
     all_sprites.draw(screen)
+
+    # Draw player's aiming cone
+    coneSurface = playerSprite.createAimingCone(WIDTH, HEIGHT)
+    screen.blit(coneSurface, (0, 0))
 
     for obj in objectsGroup:
         if obj.is_metallic:
             # Calculate the distance to determine if the line should be drawn
-            dx = obj.rect.centerx - playerSprite.rect.centerx
-            dy = obj.rect.centery - playerSprite.rect.centery
-            distance = (dx**2 + dy**2) ** 0.5
-            if distance <= playerSprite.maxPushRange:
-                pygame.draw.line(screen, (100, 200, 255) if playerSprite.aSteel or playerSprite.aIron else (100, 100, 255),
+            inRange, objVector, distance = playerSprite.objectInRange(obj)
+            if inRange:
+                pygame.draw.line(screen, (100, 200, 255) if (playerSprite.aSteel or playerSprite.aIron) and playerSprite.objectInTargettingCone(objVector) else (100, 100, 255),
                                  playerSprite.rect.center, obj.rect.center, 2)
 
     # Render blitted objects to screen

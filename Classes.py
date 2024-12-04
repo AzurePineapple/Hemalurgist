@@ -1,3 +1,4 @@
+import math
 import pygame
 
 # Define some debugging globals that will become settings later
@@ -35,6 +36,7 @@ class PlayerSprite(pygame.sprite.Sprite):
         self.pull_force = 1000
         self.maxForce = 4
         self.maxPushRange = maxPushRange
+        self.coneAngle = 45
 
         # Spikes
         self.spikes = ["AllomancySteel", None]
@@ -61,6 +63,7 @@ class PlayerSprite(pygame.sprite.Sprite):
         self.fChromium = 0
 
         self.feruchemyChangeRate = 3
+        self.metalMindCapacity = 5000
 
         # Metalminds
         self.ironMetalMind = 0
@@ -126,6 +129,82 @@ class PlayerSprite(pygame.sprite.Sprite):
             self.yVelocity = max(self.yVelocity, self.shortJumpCutoff)
         self.jumpKeyHeld = False
 
+    def createAimingCone(self, screenWidth, screenHeight):
+        # Create surface for the cone
+        coneSurface = pygame.Surface(
+            (screenWidth, screenHeight), pygame.SRCALPHA)
+
+        # Get and normalise the direction vector to the mouse
+        playerPos = self.rect.center
+        mousePos = pygame.mouse.get_pos()
+        mouseDir = (mousePos[0] - playerPos[0], mousePos[1]-playerPos[1])
+        mag = (mouseDir[0]**2 + mouseDir[1]**2)**0.5
+        if mag > 0:
+            mouseDir = (mouseDir[0]/mag, mouseDir[1]/mag)
+
+        # Calculate the boundary angles
+        baseAngle = math.atan2(mouseDir[1], mouseDir[0])
+        coneAngleRad = math.radians(self.coneAngle / 2)
+
+        # Define start and end angles
+        startAngle = baseAngle - coneAngleRad
+        endAngle = baseAngle + coneAngleRad
+
+        # Fill the cone slice
+        points = [playerPos]
+        steps = 20
+        for i in range(steps+1):
+            angle = startAngle + i * (endAngle-startAngle)/steps
+            x = int(playerPos[0] + self.maxPushRange*math.cos(angle))
+            y = int(playerPos[1] + self.maxPushRange*math.sin(angle))
+            points.append((x, y))
+
+        pygame.draw.polygon(coneSurface, (100, 100, 255, 10), points)
+        return coneSurface
+
+    def objectInRange(self, obj):
+        # Calculate vector to the object
+        dx = obj.rect.centerx - self.rect.centerx
+        dy = obj.rect.centery - self.rect.centery
+        distance = (dx**2 + dy**2) ** 0.5
+
+        # Normalise the vector
+        if distance > 0:
+            dx /= distance
+            dy /= distance
+
+        if 0 < distance <= self.maxPushRange:
+            return True, (dx, dy), distance
+        else:
+            return False, (dx, dy), distance
+
+    def objectInTargettingCone(self, objVector):
+        """Returns true if vector to an object lies within the targetting cone of the player, which is projected from the player to the mouse cursor
+
+        Args:
+            objVector (tuple): contains the x and y elements of the vector pointing from the player to the object (normalised)
+        """
+        # Get vector from player to mouse and normalise it
+        mousePos = pygame.mouse.get_pos()
+        mouseDir = (mousePos[0] - self.rect.center[0],
+                    mousePos[1] - self.rect.center[1])
+        mag = (mouseDir[0]**2 + mouseDir[1]**2)**0.5
+        if mag > 0:
+            mouseDir = (mouseDir[0]/mag, mouseDir[1]/mag)
+
+        # Calculate the angle between the normalised vectors and convert to degrees
+        dotProduct = objVector[0] * mouseDir[0] + objVector[1] * mouseDir[1]
+        # Clamp the value of the dot product so that it cannot go out of domain for arccos function (caused by floating point math errors)
+        dotProduct = min(max(dotProduct, 0), 1)
+        try:
+            angle = math.acos(dotProduct) * (180 / math.pi)
+        except ValueError:
+            raise Exception("dotProduct out of range of arccos function, value was: " +
+                            str(dotProduct))
+
+        # Return true if angle falls within the size of the cone
+        return angle <= self.coneAngle/2
+
     def applyForce(self, force_x, force_y):
         # Apply force based on mass
         self.xVelocity += force_x / self.mass
@@ -134,50 +213,35 @@ class PlayerSprite(pygame.sprite.Sprite):
     def steelpush(self, objects):
         for obj in objects:
             if obj.is_metallic:
-                # Calculate difference vector between player and object
-                dx = obj.rect.centerx - self.rect.centerx
-                dy = obj.rect.centery - self.rect.centery
-                distance = (dx**2 + dy**2) ** 0.5
 
-                if 0 < distance < self.maxPushRange:
-                    direction_x = dx / distance
-                    direction_y = dy / distance
+                inRange, vector, distance = self.objectInRange(obj)
+                aimedAt = self.objectInTargettingCone(vector)
 
-                    force_magnitude = self.push_force / distance
-                    # Cap the force
-                    force_magnitude = min(force_magnitude, self.maxForce)
+                if inRange and aimedAt:
+                    forceMag = self.push_force / distance
+                    forceMag = min(forceMag, self.maxForce)
 
-                    force_x = force_magnitude * direction_x
-                    force_y = force_magnitude * direction_y
+                    forceX = forceMag * vector[0]
+                    forceY = forceMag * vector[1]
 
-                    # Apply the force in the opposite direction (push away)
-                    self.applyForce(-force_x, -force_y)
-                    obj.applyForce(force_x, force_y)
+                    self.applyForce(-forceX, -forceY)
+                    obj.applyForce(forceX, forceY)
 
     def ironpull(self, objects):
         for obj in objects:
             if obj.is_metallic:
-                # Calculate difference vector between player and object
-                dx = obj.rect.centerx - self.rect.centerx
-                dy = obj.rect.centery - self.rect.centery
-                distance = (dx**2 + dy**2) ** 0.5
 
-                if 0 < distance < self.maxPushRange:
-                    # Calculate the direction of the force
-                    direction_x = dx / distance
-                    direction_y = dy / distance
+                inRange, vector, distance = self.objectInRange(obj)
+                aimedAt = self.objectInTargettingCone(vector)
+                if inRange and aimedAt:
+                    forceMag = self.push_force / distance
+                    forceMag = min(forceMag, self.maxForce)
 
-                    # Distance-based force magnitude
-                    force_magnitude = self.pull_force / distance
-                    force_magnitude = min(
-                        force_magnitude, self.maxForce)  # Cap the force
+                    forceX = forceMag * vector[0]
+                    forceY = forceMag * vector[1]
 
-                    # Apply the force to the object
-                    force_x = force_magnitude * direction_x
-                    force_y = force_magnitude * direction_y
-
-                    self.applyForce(force_x, force_y)
-                    obj.applyForce(-force_x, -force_y)
+                    self.applyForce(forceX, forceY)
+                    obj.applyForce(-forceX, -forceY)
 
                     # Smooth out the velocity when the object is close to the player
                     if distance < 10:  # Close enough to reduce speed
@@ -211,12 +275,18 @@ class PlayerSprite(pygame.sprite.Sprite):
         self.fChromium = min(max(self.fChromium, -3), 3)
 
         # Constrains the amount of attribute stored in each metalmind
-        self.ironMetalMind = min(max(self.ironMetalMind, 0), 1000)
-        self.steelMetalMind = min(max(self.steelMetalMind, 0), 1000)
-        self.pewterMetalMind = min(max(self.pewterMetalMind, 0), 1000)
-        self.goldMetalMind = min(max(self.goldMetalMind, 0), 1000)
-        self.brassMetalMind = min(max(self.brassMetalMind, 0), 1000)
-        self.chromiumMetalMind = min(max(self.chromiumMetalMind, 0), 1000)
+        self.ironMetalMind = min(
+            max(self.ironMetalMind, 0), self.metalMindCapacity)
+        self.steelMetalMind = min(
+            max(self.steelMetalMind, 0), self.metalMindCapacity)
+        self.pewterMetalMind = min(
+            max(self.pewterMetalMind, 0), self.metalMindCapacity)
+        self.goldMetalMind = min(
+            max(self.goldMetalMind, 0), self.metalMindCapacity)
+        self.brassMetalMind = min(
+            max(self.brassMetalMind, 0), self.metalMindCapacity)
+        self.chromiumMetalMind = min(
+            max(self.chromiumMetalMind, 0), self.metalMindCapacity)
 
     def changeAttributes(self):
         """Alters feruchemical attributes when the player is tapping/filling a metalmind
@@ -242,7 +312,7 @@ class PlayerSprite(pygame.sprite.Sprite):
     def updateFeruchemy(self):
 
         # If metalminds are full or empty and player tried to fill/tap respectively, set the stage to 0
-        if self.ironMetalMind >= 1000 and self.fIron < 0:
+        if self.ironMetalMind >= self.metalMindCapacity and self.fIron < 0:
             self.fIron = 0
         elif self.ironMetalMind <= 0 and self.fIron > 0:
             self.fIron = 0
@@ -337,7 +407,7 @@ class Object(pygame.sprite.Sprite):
             self.yVelocity += 1
 
         # Update horizontal position based on velocity
-        self.rect.x += self.xVelocity
+        self.rect.x += int(self.xVelocity)
         self.rect.y += int(self.yVelocity)
 
         # Check for collision with ground
