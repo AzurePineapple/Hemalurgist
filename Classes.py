@@ -41,6 +41,9 @@ class PlayerSprite(pygame.sprite.Sprite):
         # Spikes
         self.spikes = ["AllomancySteel", None]
 
+        self.allomanticMetals = ["steel", "iron", "aluminium", "bendalloy",
+                                 "cadmium", "brass", "zinc", "chromium", "duralumin", "zinc"]
+
         # Allomancy flags - False for not burning, True if burning
         self.aSteel = False
         self.aIron = False
@@ -54,24 +57,34 @@ class PlayerSprite(pygame.sprite.Sprite):
         self.aDuralumin = False
         self.aTin = False
 
+        self.feruchemicalMetals = ["steel", "iron",
+                                   "pewter", "gold",
+                                   "brass", "chromium"]
+
         # Feruchemy flags - +1 indicates filling at 1st stage rate (value tbd), -3 means tapping at 3rd stage rate etc.
-        self.fIron = 0
-        self.fSteel = 0
-        self.fPewter = 0
-        self.fGold = 0
-        self.fBrass = 0
-        self.fChromium = 0
+        self.feruchemyFlags = {"iron": 0, "steel": 0,
+                               "pewter": 0, "gold": 0,
+                               "brass": 0, "chromium": 0}
+        # self.fIron = 0
+        # self.fSteel = 0
+        # self.fPewter = 0
+        # self.fGold = 0
+        # self.fBrass = 0
+        # self.fChromium = 0
 
         self.feruchemyChangeRate = 3
         self.metalMindCapacity = 5000
 
         # Metalminds
-        self.ironMetalMind = 0
-        self.steelMetalMind = 0
-        self.pewterMetalMind = 0
-        self.goldMetalMind = 0
-        self.brassMetalMind = 0
-        self.chromiumMetalMind = 0
+        self.metalMinds = {"iron": 0, "steel": 0,
+                           "pewter": 0, "gold": 0,
+                           "brass": 0, "chromium": 0}
+        # self.ironMetalMind = 0
+        # self.steelMetalMind = 0
+        # self.pewterMetalMind = 0
+        # self.goldMetalMind = 0
+        # self.brassMetalMind = 0
+        # self.chromiumMetalMind = 0
 
         # All feruchemy related attributes
 
@@ -255,46 +268,32 @@ class PlayerSprite(pygame.sprite.Sprite):
 
     def changeMetalmindRate(self, metal, change):
 
-        match metal:
-            case "iron":
-                self.fIron += change
-            case "steel":
-                self.fSteel += change
-            case _:
-                print("Invalid metal passed")
+        if not metal in self.feruchemicalMetals:
+            raise Exception(
+                "Passed metal not in available feruchemical metals")
+        else:
+            self.feruchemyFlags[metal] += change
 
     def limitFeruchemy(self):
         """constrains values relevant to feruchemy to value ranges
         """
 
         # Constrains the value of each metals fill/tap rate to lie within range -3 to +3
-        self.fIron = min(max(self.fIron, -3), 3)
-        self.fSteel = min(max(self.fSteel, -3), 3)
-        self.fPewter = min(max(self.fPewter, -3), 3)
-        self.fGold = min(max(self.fGold, -3), 3)
-        self.fBrass = min(max(self.fBrass, -3), 3)
-        self.fChromium = min(max(self.fChromium, -3), 3)
+        for metal in self.feruchemicalMetals:
+            self.feruchemyFlags[metal] = min(
+                max(self.feruchemyFlags[metal], -3), 3)
 
         # Constrains the amount of attribute stored in each metalmind
-        self.ironMetalMind = min(
-            max(self.ironMetalMind, 0), self.metalMindCapacity)
-        self.steelMetalMind = min(
-            max(self.steelMetalMind, 0), self.metalMindCapacity)
-        self.pewterMetalMind = min(
-            max(self.pewterMetalMind, 0), self.metalMindCapacity)
-        self.goldMetalMind = min(
-            max(self.goldMetalMind, 0), self.metalMindCapacity)
-        self.brassMetalMind = min(
-            max(self.brassMetalMind, 0), self.metalMindCapacity)
-        self.chromiumMetalMind = min(
-            max(self.chromiumMetalMind, 0), self.metalMindCapacity)
+        for metal in self.feruchemicalMetals:
+            self.metalMinds[metal] = min(
+                max(self.metalMinds[metal], 0), self.metalMindCapacity)
 
     def changeAttributes(self):
         """Alters feruchemical attributes when the player is tapping/filling a metalmind
         """
         # Iron
 
-        match self.fIron:
+        match self.feruchemyFlags["iron"]:
             case -3:
                 self.mass = 0.25 * self.baseMass
             case -2:
@@ -310,7 +309,7 @@ class PlayerSprite(pygame.sprite.Sprite):
             case 3:
                 self.mass = 10 * self.baseMass
 
-        match self.fSteel:
+        match self.feruchemyFlags["steel"]:
             case -3:
                 self.moveSpeedLimit = 0.25 * self.baseMoveSpeedLimit
                 self.acceleration = 0.25 * self.baseAcceleration
@@ -341,22 +340,20 @@ class PlayerSprite(pygame.sprite.Sprite):
                 self.deceleration = 10 * self.baseDeceleration
 
     def updateFeruchemy(self):
-        # TODO: Somehow pair the metal mind and the flags so that I can iterate through them and do some of this programatically?
-        
-        # If metalminds are full or empty and player tried to fill/tap respectively, set the stage to 0
-        if self.ironMetalMind >= self.metalMindCapacity and self.fIron < 0:
-            self.fIron = 0
-        elif self.ironMetalMind <= 0 and self.fIron > 0:
-            self.fIron = 0
 
-        if self.steelMetalMind >= self.metalMindCapacity and self.fSteel < 0:
-            self.fSteel = 0
-        elif self.steelMetalMind <= 0 and self.fSteel > 0:
-            self.fSteel = 0
+        # If metalminds are full or empty and player tried to fill/tap respectively, set the stage to 0
+        for metal in self.feruchemicalMetals:
+            # If metalmind is over capacity and trying to fill, stop filling
+            if self.metalMinds[metal] >= self.metalMindCapacity and self.feruchemyFlags[metal] < 0:
+                self.feruchemyFlags[metal] = 0
+            # Else if metalmind is empty and trying to drain, stop draining
+            elif self.metalMinds[metal] <= 0 and self.feruchemyFlags[metal] > 0:
+                self.feruchemyFlags[metal] = 0
 
         self.changeAttributes()
-        self.ironMetalMind += self.baseMass - self.mass
-        self.steelMetalMind += self.baseMoveSpeedLimit - self.moveSpeedLimit
+        self.metalMinds["iron"] += int(self.baseMass - self.mass)
+        self.metalMinds["steel"] += int(self.baseMoveSpeedLimit -
+                                        self.moveSpeedLimit)
 
         # Sanity check all metalmind values
         self.limitFeruchemy()
