@@ -400,6 +400,9 @@ class PlayerSprite(pygame.sprite.Sprite):
         # Do feruchemy updates
         self.updateFeruchemy()
 
+    def isPushPulling(self):
+        return self.aSteel or self.aIron
+
 
 class Object(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, screenWidth, screenHeight, is_metallic=False, mass=1.0, suspended=False):

@@ -49,6 +49,16 @@ objectsGroup.add(Object(800, 400, 20, 20, WIDTH, HEIGHT, True, 2, True))
 all_sprites.add(playerSprite, *objectsGroup)
 
 
+def doAllomancy():
+     # Perform steelpush
+    if playerSprite.aSteel:
+        playerSprite.steelpush(objectsGroup)
+        
+        playerSprite.calculateForce()
+        playerSprite.applyForce
+    if playerSprite.aIron:
+        playerSprite.ironpull(objectsGroup)
+
 # Game loop
 running = True
 
@@ -133,18 +143,13 @@ while running:
     else:
         playerSprite.stop()  # Decelerate when no key is pressed
 
-    # Perform steelpush
-    if playerSprite.aSteel:
-        playerSprite.steelpush(objectsGroup)
-    if playerSprite.aIron:
-        playerSprite.ironpull(objectsGroup)
-    # if playerSprite.fIron:
-        # playerSprite.ironFeruchemy(1)
-
+   
     # Draw all sprites
     all_sprites.update()
     all_sprites.draw(screen)
 
+    doAllomancy()
+    
     # Draw player's aiming cone
     coneSurface = playerSprite.createAimingCone(WIDTH, HEIGHT)
     screen.blit(coneSurface, (0, 0))
@@ -154,7 +159,7 @@ while running:
             # Calculate the distance to determine if the line should be drawn
             inRange, objVector, distance = playerSprite.objectInRange(obj)
             if inRange:
-                pygame.draw.line(screen, (100, 200, 255) if (playerSprite.aSteel or playerSprite.aIron) and playerSprite.objectInTargettingCone(objVector) else (100, 100, 255),
+                pygame.draw.line(screen, (100, 200, 255) if (playerSprite.isPushPulling) and playerSprite.objectInTargettingCone(objVector) else (100, 100, 255),
                                  playerSprite.rect.center, obj.rect.center, 2)
 
     # Render blitted objects to screen
