@@ -172,7 +172,7 @@ class PlayerSprite(pygame.sprite.Sprite):
             y = int(playerPos[1] + self.maxPushRange*math.sin(angle))
             points.append((x, y))
 
-        pygame.draw.polygon(coneSurface, (100, 100, 255, 10), points)
+        pygame.draw.polygon(coneSurface, (100, 100, 255, 190), points)
         return coneSurface
 
     def objectInRange(self, obj):
@@ -217,6 +217,21 @@ class PlayerSprite(pygame.sprite.Sprite):
 
         # Return true if angle falls within the size of the cone
         return angle <= self.coneAngle/2
+
+    def calculateForce(self, obj):
+        """Calculates the net force between allomancer and the object using the formula N = F + B
+        where N is the net force exerted on the allomancer and the object, F is the calculated 
+        allomantic force, and B is a bonus push boost coming from an anchored object
+
+        Args:
+            obj (_type_): _description_
+        """
+
+        # Steps:
+        # 1. Calculate allomantic force exerted on target, producing F
+        # 2. Scale the force with a factor exponential with the relative velocity of the two entities producing restitution force
+        # 3. Sum the allomantic force and the restitution force from the object and apply to allomancer
+        # 4. Sum the allomantic force and the restitution force from the allomancer and apply to the object
 
     def applyForce(self, force_x, force_y):
         # Apply force based on mass

@@ -8,12 +8,15 @@ from Classes import PlayerSprite, Object
 # Define some global settings variables
 FRAMERATE_CAP = 60
 DISPLAY_FPS = True
-WIDTH = 1920
-HEIGHT = 1080
 
+
+# WIDTH = 1500
+# HEIGHT = 500
 
 pygame.init()
 
+WIDTH = pygame.display.Info().current_w
+HEIGHT = pygame.display.Info().current_h
 
 # Set up text
 pygame.font.init()
@@ -50,14 +53,15 @@ all_sprites.add(playerSprite, *objectsGroup)
 
 
 def doAllomancy():
-     # Perform steelpush
+    # Perform steelpush
     if playerSprite.aSteel:
         playerSprite.steelpush(objectsGroup)
-        
+
         playerSprite.calculateForce()
         playerSprite.applyForce
     if playerSprite.aIron:
         playerSprite.ironpull(objectsGroup)
+
 
 # Game loop
 running = True
@@ -143,13 +147,12 @@ while running:
     else:
         playerSprite.stop()  # Decelerate when no key is pressed
 
-   
     # Draw all sprites
     all_sprites.update()
     all_sprites.draw(screen)
 
-    doAllomancy()
-    
+    # doAllomancy()
+
     # Draw player's aiming cone
     coneSurface = playerSprite.createAimingCone(WIDTH, HEIGHT)
     screen.blit(coneSurface, (0, 0))
