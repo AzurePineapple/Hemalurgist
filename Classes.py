@@ -1,8 +1,71 @@
 import math
+import numpy as np
 import pygame
+from IronSteelAllomancy import IronSteelAllomancy
 
 # Define some debugging globals that will become settings later
 EASY_FERUCHEMY = True
+
+
+class Object(pygame.sprite.Sprite):
+    def __init__(self, x, y, width, height, screenWidth, screenHeight, is_metallic=False, mass=1.0, suspended=False):
+        super().__init__()
+        self.image = pygame.Surface([width, height])
+        self.image.fill((200, 200, 200) if is_metallic else (100, 100, 100))
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (x, y)
+        self.is_metallic = is_metallic
+
+        # Window constants
+        self.screenWidth = screenWidth
+        self.screenHeight = screenHeight
+
+        # Object physical attributes
+        self.height = height
+        self.width = width
+        self.xVelocity = 0
+        self.yVelocity = 0
+        self.mass = mass
+        self.magneticMass = mass
+        self.frictionCoeff = 0.1  # Friction coefficient
+        self.maxVelocity = 10
+        self.suspended = suspended
+        self.charge = math.pow(
+            self.magneticMass, IronSteelAllomancy.chargePower)
+
+    def applyForce(self, force_x, force_y):
+        if not self.suspended:
+            self.xVelocity += force_x / self.mass
+            self.yVelocity += force_y / self.mass
+
+    def getCentreOfMassArray(self):
+        return np.array([self.rect.centerx, self.rect.centery])
+
+    def update(self):
+        # Apply friction to the object's motion
+        friction_force_x = -self.xVelocity * self.frictionCoeff * self.mass
+        friction_force_y = -self.yVelocity * self.frictionCoeff * self.mass
+
+        # Apply friction to the velocity
+        self.applyForce(friction_force_x, friction_force_y)
+
+        # Apply gravity
+        if not self.suspended:
+            self.yVelocity += 1
+
+        # Update horizontal position based on velocity
+        self.rect.x += int(self.xVelocity)
+        self.rect.y += int(self.yVelocity)
+
+        # Check for collision with ground
+        if self.rect.y >= self.screenHeight - self.height:
+            self.rect.y = self.screenHeight - self.height
+            self.yVelocity = 0
+            self.isAirborne = False
+
+        screen_rect = pygame.Rect(
+            0, 0, self.screenWidth, self.screenHeight)
+        self.rect.clamp_ip(screen_rect)
 
 
 class PlayerSprite(pygame.sprite.Sprite):
@@ -41,21 +104,7 @@ class PlayerSprite(pygame.sprite.Sprite):
         # Spikes
         self.spikes = ["AllomancySteel", None]
 
-        self.allomanticMetals = ["steel", "iron", "aluminium", "bendalloy",
-                                 "cadmium", "brass", "zinc", "chromium", "duralumin", "zinc"]
-
-        # Allomancy flags - False for not burning, True if burning
-        self.aSteel = False
-        self.aIron = False
-        self.aAluminium = False
-        self.aBendalloy = False
-        self.aCadmium = False
-        self.aBrass = False
-        self.aZinc = False
-        self.aChromium = False
-        self.aCopper = False
-        self.aDuralumin = False
-        self.aTin = False
+        # Feruchemy
 
         self.feruchemicalMetals = ["steel", "iron",
                                    "pewter", "gold",
@@ -65,12 +114,6 @@ class PlayerSprite(pygame.sprite.Sprite):
         self.feruchemyFlags = {"iron": 0, "steel": 0,
                                "pewter": 0, "gold": 0,
                                "brass": 0, "chromium": 0}
-        # self.fIron = 0
-        # self.fSteel = 0
-        # self.fPewter = 0
-        # self.fGold = 0
-        # self.fBrass = 0
-        # self.fChromium = 0
 
         self.feruchemyChangeRate = 3
         self.metalMindCapacity = 5000
@@ -79,12 +122,6 @@ class PlayerSprite(pygame.sprite.Sprite):
         self.metalMinds = {"iron": 0, "steel": 0,
                            "pewter": 0, "gold": 0,
                            "brass": 0, "chromium": 0}
-        # self.ironMetalMind = 0
-        # self.steelMetalMind = 0
-        # self.pewterMetalMind = 0
-        # self.goldMetalMind = 0
-        # self.brassMetalMind = 0
-        # self.chromiumMetalMind = 0
 
         # All feruchemy related attributes
 
@@ -102,6 +139,28 @@ class PlayerSprite(pygame.sprite.Sprite):
         self.warmth = self.baseWarmth = 50
         # Chromium
         self.fortune = self.baseFortune = 100
+
+        self.allomanticMetals = ["steel", "iron", "aluminium", "bendalloy",
+                                 "cadmium", "brass", "zinc", "chromium", "duralumin", "zinc"]
+
+        # Allomancy
+
+        # Allomancy flags - False for not burning, True if burning
+        self.aSteel = False
+        self.aIron = False
+        self.aAluminium = False
+        self.aBendalloy = False
+        self.aCadmium = False
+        self.aBrass = False
+        self.aZinc = False
+        self.aChromium = False
+        self.aCopper = False
+        self.aDuralumin = False
+        self.aTin = False
+
+        self.allomanticStrength = 1
+        self.charge = math.pow(
+            self.mass, IronSteelAllomancy.chargePower)
 
     def moveRight(self):
         accelerationValue = self.acceleration if not self.isAirborne else self.acceleration/2
@@ -142,6 +201,9 @@ class PlayerSprite(pygame.sprite.Sprite):
             self.yVelocity = max(self.yVelocity, self.shortJumpCutoff)
         self.jumpKeyHeld = False
 
+    def getCentreOfMassArray(self):
+        return np.array([self.rect.centerx, self.rect.centery])
+
     def createAimingCone(self, screenWidth, screenHeight):
         # Create surface for the cone
         coneSurface = pygame.Surface(
@@ -172,7 +234,7 @@ class PlayerSprite(pygame.sprite.Sprite):
             y = int(playerPos[1] + self.maxPushRange*math.sin(angle))
             points.append((x, y))
 
-        pygame.draw.polygon(coneSurface, (100, 100, 255, 190), points)
+        pygame.draw.polygon(coneSurface, (100, 100, 255, 50), points)
         return coneSurface
 
     def objectInRange(self, obj):
@@ -218,6 +280,41 @@ class PlayerSprite(pygame.sprite.Sprite):
         # Return true if angle falls within the size of the cone
         return angle <= self.coneAngle/2
 
+    def calculateAllomanticForce(self, obj: Object):
+        """Calculates the allomantic force between the allomancer (self) and the object being targetted
+            F = A * S * C * d 
+
+            F: Allomantic Force
+     *      A: Allomantic Constant (~1000, subject to change)
+     *      S: Allomantic Strength (1), a constant, different for each Allomancer
+     *      C: Allomantic Charge (8th root of (Allomancer mass * target mass)), different for each Allomancer-target pair.
+     *          Is the effect of mass on the force.
+     *      d: Distance factor (between 0% and 100%)
+     *          Is the effect of the distance between the target and Allomancer on the force.
+
+
+        Args:
+            obj (_type_): _description_
+        """
+
+        # Calculate vector to the object
+        positionDifference = obj.getCentreOfMassArray() - self.getCentreOfMassArray()
+
+        if np.allclose(positionDifference, 0.0):
+            positionDifference = np.array([0.0, -0.0001, 0.0])
+
+        magnitude = np.linalg.norm(positionDifference)
+        positionDifferenceNorm = positionDifference / \
+            magnitude if magnitude > 0 else positionDifference
+
+        distanceFactor = positionDifferenceNorm * \
+            np.exp(-magnitude/IronSteelAllomancy.distanceConstant)
+
+        force = IronSteelAllomancy.allomanticConstant * \
+            self.allomanticStrength * self.charge * obj.charge * distanceFactor
+
+        return force
+
     def calculateForce(self, obj):
         """Calculates the net force between allomancer and the object using the formula N = F + B
         where N is the net force exerted on the allomancer and the object, F is the calculated 
@@ -232,6 +329,10 @@ class PlayerSprite(pygame.sprite.Sprite):
         # 2. Scale the force with a factor exponential with the relative velocity of the two entities producing restitution force
         # 3. Sum the allomantic force and the restitution force from the object and apply to allomancer
         # 4. Sum the allomantic force and the restitution force from the allomancer and apply to the object
+
+        allomanticForce = self.calculateAllomanticForce(obj)
+
+        print(allomanticForce)
 
     def applyForce(self, force_x, force_y):
         # Apply force based on mass
@@ -417,58 +518,3 @@ class PlayerSprite(pygame.sprite.Sprite):
 
     def isPushPulling(self):
         return self.aSteel or self.aIron
-
-
-class Object(pygame.sprite.Sprite):
-    def __init__(self, x, y, width, height, screenWidth, screenHeight, is_metallic=False, mass=1.0, suspended=False):
-        super().__init__()
-        self.image = pygame.Surface([width, height])
-        self.image.fill((200, 200, 200) if is_metallic else (100, 100, 100))
-        self.rect = self.image.get_rect()
-        self.rect.topleft = (x, y)
-        self.is_metallic = is_metallic
-
-        # Window constants
-        self.screenWidth = screenWidth
-        self.screenHeight = screenHeight
-
-        # Object physical attributes
-        self.height = height
-        self.width = width
-        self.xVelocity = 0
-        self.yVelocity = 0
-        self.mass = mass
-        self.frictionCoeff = 0.1  # Friction coefficient
-        self.maxVelocity = 10
-        self.suspended = suspended
-
-    def applyForce(self, force_x, force_y):
-        if not self.suspended:
-            self.xVelocity += force_x / self.mass
-            self.yVelocity += force_y / self.mass
-
-    def update(self):
-        # Apply friction to the object's motion
-        friction_force_x = -self.xVelocity * self.frictionCoeff * self.mass
-        friction_force_y = -self.yVelocity * self.frictionCoeff * self.mass
-
-        # Apply friction to the velocity
-        self.applyForce(friction_force_x, friction_force_y)
-
-        # Apply gravity
-        if not self.suspended:
-            self.yVelocity += 1
-
-        # Update horizontal position based on velocity
-        self.rect.x += int(self.xVelocity)
-        self.rect.y += int(self.yVelocity)
-
-        # Check for collision with ground
-        if self.rect.y >= self.screenHeight - self.height:
-            self.rect.y = self.screenHeight - self.height
-            self.yVelocity = 0
-            self.isAirborne = False
-
-        screen_rect = pygame.Rect(
-            0, 0, self.screenWidth, self.screenHeight)
-        self.rect.clamp_ip(screen_rect)

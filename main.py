@@ -15,8 +15,8 @@ DISPLAY_FPS = True
 
 pygame.init()
 
-WIDTH = pygame.display.Info().current_w
-HEIGHT = pygame.display.Info().current_h
+WIDTH = pygame.display.Info().current_w/2
+HEIGHT = pygame.display.Info().current_h/2
 
 # Set up text
 pygame.font.init()
@@ -28,7 +28,7 @@ DEBUG_FONT = pygame.font.SysFont("consolas", 20)
 clock = pygame.time.Clock()
 
 # Create and name window
-screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
+screen = pygame.display.set_mode((WIDTH, HEIGHT))  # , pygame.FULLSCREEN)
 pygame.display.set_caption("Hemalurgist")
 pygame.event.set_grab(True)
 
@@ -53,14 +53,22 @@ all_sprites.add(playerSprite, *objectsGroup)
 
 
 def doAllomancy():
-    # Perform steelpush
-    if playerSprite.aSteel:
-        playerSprite.steelpush(objectsGroup)
 
-        playerSprite.calculateForce()
-        playerSprite.applyForce
-    if playerSprite.aIron:
-        playerSprite.ironpull(objectsGroup)
+    # Old Method
+
+    # Perform steelpush
+    # if playerSprite.aSteel:
+    #     playerSprite.steelpush(objectsGroup)
+
+    # if playerSprite.aIron:
+    #     playerSprite.ironpull(objectsGroup)
+
+    # New Method
+
+    if playerSprite.aSteel or playerSprite.aIron:
+        for obj in objectsGroup:
+            if obj.is_metallic:
+                playerSprite.calculateForce(obj)
 
 
 # Game loop
@@ -151,7 +159,7 @@ while running:
     all_sprites.update()
     all_sprites.draw(screen)
 
-    # doAllomancy()
+    doAllomancy()
 
     # Draw player's aiming cone
     coneSurface = playerSprite.createAimingCone(WIDTH, HEIGHT)
