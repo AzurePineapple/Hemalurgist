@@ -1,99 +1,142 @@
 import math
 import numpy as np
+import numpy.typing as npt
 import pygame
 from IronSteelAllomancy import IronSteelAllomancy
+import functions
 
 # Define some debugging globals that will become settings later
 EASY_FERUCHEMY = True
+GRAVITYCONSTANT = 1
 
 
-class Object(pygame.sprite.Sprite):
-    def __init__(self, x, y, width, height, screenWidth, screenHeight, is_metallic=False, mass=1.0, suspended=False):
+class Entity(pygame.sprite.Sprite):
+    def __init__(self, x, y, height, width, screenWidth, screenHeight, perfectlyAnchored):
         super().__init__()
         self.image = pygame.Surface([width, height])
-        self.image.fill((200, 200, 200) if is_metallic else (100, 100, 100))
+        self.image.fill((167, 255, 100))
+        self.image.set_colorkey((255, 100, 98))
+
         self.rect = self.image.get_rect()
-        self.rect.topleft = (x, y)
+        self.rect.center = (x, y)
+
+        # Window constants
+        self.screenWidth = screenWidth
+        self.screenHeight = screenHeight
+
+        # Physical constants
+        self.mass = int
+        self.velocity = np.array([0.0, 0.0])
+
+        self.height = height
+        self.width = width
+        self.isPerfectlyAnchored = perfectlyAnchored
+        self.isAirborne = False
+        self.deceleration = 1
+
+        self.netForceThisFrame = np.array([0.0, 0.0])
+
+    def addForce(self, force: npt.NDArray):
+        if not self.isPerfectlyAnchored:
+            self.netForceThisFrame += force
+
+    def applyForce(self):
+        # Apply force based on mass
+        if not self.isPerfectlyAnchored:
+            self.velocity += self.netForceThisFrame / self.mass
+
+    def applyGravity(self):
+        if not self.isPerfectlyAnchored:
+            self.velocity[1] += GRAVITYCONSTANT
+
+    def updatePosition(self):
+        """Updates the sprites position based on its velocity
+        """
+        self.rect.x += self.velocity[0]
+        self.rect.y += self.velocity[1]
+
+    def getCentreOfMassArray(self):
+        return np.array([self.rect.centerx, self.rect.centery])
+
+    def stopFallingAtGround(self):
+        # Check for collision with ground
+        if self.rect.y >= self.screenHeight - self.height:
+            self.rect.y = self.screenHeight - self.height
+            self.velocity[1] = 0
+            self.isAirborne = False
+
+    def stop(self):
+        if not self.isAirborne:
+            # Gradually reduce velocity to zero
+            if self.velocity[0] > 0:
+                self.velocity[0] -= self.deceleration
+                if self.velocity[0] < 0:  # Stop overshooting zero
+                    self.velocity[0] = 0
+            elif self.velocity[0] < 0:
+                self.velocity[0] += self.deceleration
+                if self.velocity[0] > 0:  # Stop overshooting zero
+                    self.velocity[0] = 0
+
+
+class Object(Entity):
+    def __init__(self, x, y, width, height, screenWidth, screenHeight, is_metallic=False, mass=1.0, perfectlyAnchored=False):
+        Entity.__init__(self, x, y, height, width, screenWidth,
+                        screenHeight, perfectlyAnchored)
+        self.image = pygame.Surface([width, height])
+        self.image.fill((200, 200, 200) if is_metallic else (100, 100, 100))
         self.is_metallic = is_metallic
 
         # Window constants
         self.screenWidth = screenWidth
         self.screenHeight = screenHeight
 
-        # Object physical attributes
-        self.height = height
-        self.width = width
-        self.xVelocity = 0
-        self.yVelocity = 0
         self.mass = mass
         self.magneticMass = mass
         self.frictionCoeff = 0.1  # Friction coefficient
         self.maxVelocity = 10
-        self.suspended = suspended
         self.charge = math.pow(
             self.magneticMass, IronSteelAllomancy.chargePower)
-
-    def applyForce(self, force_x, force_y):
-        if not self.suspended:
-            self.xVelocity += force_x / self.mass
-            self.yVelocity += force_y / self.mass
-
-    def getCentreOfMassArray(self):
-        return np.array([self.rect.centerx, self.rect.centery])
+        self.lastWasPushed = False
 
     def update(self):
         # Apply friction to the object's motion
-        friction_force_x = -self.xVelocity * self.frictionCoeff * self.mass
-        friction_force_y = -self.yVelocity * self.frictionCoeff * self.mass
+        # if not self.isAirborne:
+        #     friction_force_x = - \
+        #         self.velocity[0] * self.frictionCoeff * self.mass
+        #     friction_force_y = - \
+        #         self.velocity[1] * self.frictionCoeff * self.mass
 
-        # Apply friction to the velocity
-        self.applyForce(friction_force_x, friction_force_y)
+        #     frictionForce = np.array([friction_force_x, friction_force_y])
+        #     # Apply friction to the velocity
+        #     self.applyForce(frictionForce)
 
-        # Apply gravity
-        if not self.suspended:
-            self.yVelocity += 1
+        self.applyForce()
+        self.applyGravity()
+        self.updatePosition()
+        self.stopFallingAtGround()
 
-        # Update horizontal position based on velocity
-        self.rect.x += int(self.xVelocity)
-        self.rect.y += int(self.yVelocity)
-
-        # Check for collision with ground
-        if self.rect.y >= self.screenHeight - self.height:
-            self.rect.y = self.screenHeight - self.height
-            self.yVelocity = 0
-            self.isAirborne = False
+        # Clear force this frame
+        self.netForceThisFrame *= 0
 
         screen_rect = pygame.Rect(
             0, 0, self.screenWidth, self.screenHeight)
         self.rect.clamp_ip(screen_rect)
 
 
-class PlayerSprite(pygame.sprite.Sprite):
-    def __init__(self, color, height, width, screenWidth, screenHeight, maxPushRange=300):
-        super().__init__()
-
-        self.image = pygame.Surface([width, height])
-        self.image.fill((167, 255, 100))
-        self.image.set_colorkey((255, 100, 98))
+class PlayerSprite(Entity):
+    def __init__(self, x, y, color, height, width, screenWidth, screenHeight, maxPushRange=500):
+        Entity.__init__(self, x, y, height, width,
+                        screenWidth, screenHeight, False)
 
         pygame.draw.rect(self.image, color, pygame.Rect(0, 0, width, height))
 
-        self.rect = self.image.get_rect()
-
-        # Window constants
-        self.screenWidth = screenWidth
-        self.screenHeight = screenHeight
-
         # Player constants
-        self.height = height
-        self.width = width
-        self.aerialMoveSpeedLimit = 20
-        self.xVelocity = 0
+
+        self.aerialMoveSpeedLimit = 30
         self.airResistanceCoeff = 0.01
-        self.jumpForce = -15
+        self.jumpForce = -50
         self.shortJumpCutoff = 0.3 * self.jumpForce
-        self.yVelocity = 0
-        self.isAirborne = False
+
         self.jumpKeyHeld = False
         self.push_force = 1000
         self.pull_force = 1000
@@ -164,45 +207,44 @@ class PlayerSprite(pygame.sprite.Sprite):
 
     def moveRight(self):
         accelerationValue = self.acceleration if not self.isAirborne else self.acceleration/2
-        if self.xVelocity < 0:  # Decelerate before reversing direction
-            self.xVelocity += self.deceleration
+        if self.velocity[0] < 0:  # Decelerate before reversing direction
+            self.velocity[0] += self.deceleration
         else:  # Accelerate normally
-            self.xVelocity = min(
-                self.xVelocity + accelerationValue, self.moveSpeedLimit)
+            self.velocity[0] = min(
+                self.velocity[0] + accelerationValue, self.moveSpeedLimit)
 
     def moveLeft(self):
         accelerationValue = self.acceleration if not self.isAirborne else self.acceleration/2
-        if self.xVelocity > 0:  # Decelerate before reversing direction
-            self.xVelocity -= self.deceleration
+        if self.velocity[0] > 0:  # Decelerate before reversing direction
+            self.velocity[0] -= self.deceleration
         else:  # Accelerate normally
-            self.xVelocity = max(
-                self.xVelocity - accelerationValue, -self.moveSpeedLimit)
-
-    def stop(self):
-        if not self.isAirborne:
-            # Gradually reduce velocity to zero
-            if self.xVelocity > 0:
-                self.xVelocity -= self.deceleration
-                if self.xVelocity < 0:  # Stop overshooting zero
-                    self.xVelocity = 0
-            elif self.xVelocity < 0:
-                self.xVelocity += self.deceleration
-                if self.xVelocity > 0:  # Stop overshooting zero
-                    self.xVelocity = 0
+            self.velocity[0] = max(
+                self.velocity[0] - accelerationValue, -self.moveSpeedLimit)
 
     def jump(self):
         if not self.isAirborne:
-            self.yVelocity = self.jumpForce
+            # self.velocity[1] = self.jumpForce
+
+            self.addForce(np.array([0, self.jumpForce]))
             self.isAirborne = True
             self.jumpKeyHeld = True
 
     def releaseJump(self):
-        if self.jumpKeyHeld and self.yVelocity < 0:
-            self.yVelocity = max(self.yVelocity, self.shortJumpCutoff)
+        if self.jumpKeyHeld and self.velocity[1] < 0:
+            self.velocity[1] = max(self.velocity[1], self.shortJumpCutoff)
         self.jumpKeyHeld = False
 
-    def getCentreOfMassArray(self):
-        return np.array([self.rect.centerx, self.rect.centery])
+    def clampVelocity(self):
+        # Ensure player is not moving faster than move speed limit
+        if self.velocity[0] < 0:
+            self.velocity[0] = max(self.velocity[0], -self.moveSpeedLimit)
+        elif self.velocity[0] > 0:
+            self.velocity[0] = min(self.velocity[0], self.moveSpeedLimit)
+        if self.velocity[1] < 0:
+            self.velocity[1] = max(
+                self.velocity[1], -self.aerialMoveSpeedLimit)
+        elif self.velocity[1] > 0:
+            self.velocity[1] = min(self.velocity[1], self.aerialMoveSpeedLimit)
 
     def createAimingCone(self, screenWidth, screenHeight):
         # Create surface for the cone
@@ -237,7 +279,7 @@ class PlayerSprite(pygame.sprite.Sprite):
         pygame.draw.polygon(coneSurface, (100, 100, 255, 50), points)
         return coneSurface
 
-    def objectInRange(self, obj):
+    def objectInRange(self, obj: Object):
         # Calculate vector to the object
         dx = obj.rect.centerx - self.rect.centerx
         dy = obj.rect.centery - self.rect.centery
@@ -280,7 +322,13 @@ class PlayerSprite(pygame.sprite.Sprite):
         # Return true if angle falls within the size of the cone
         return angle <= self.coneAngle/2
 
-    def calculateAllomanticForce(self, obj: Object):
+    def isValidTarget(self, obj: Object) -> bool:
+        inRange, vector, distance = self.objectInRange(obj)
+        aimedAt = self.objectInTargettingCone(vector)
+
+        return inRange and aimedAt and obj.is_metallic
+
+    def calculateAllomanticForce(self, obj: Object) -> npt.NDArray:
         """Calculates the allomantic force between the allomancer (self) and the object being targetted
             F = A * S * C * d 
 
@@ -315,7 +363,7 @@ class PlayerSprite(pygame.sprite.Sprite):
 
         return force
 
-    def calculateForce(self, obj):
+    def calculateForce(self, obj: Object, pushing: bool):
         """Calculates the net force between allomancer and the object using the formula N = F + B
         where N is the net force exerted on the allomancer and the object, F is the calculated 
         allomantic force, and B is a bonus push boost coming from an anchored object
@@ -330,14 +378,41 @@ class PlayerSprite(pygame.sprite.Sprite):
         # 3. Sum the allomantic force and the restitution force from the object and apply to allomancer
         # 4. Sum the allomantic force and the restitution force from the allomancer and apply to the object
 
+        obj.lastWasPushed = pushing
+
         allomanticForce = self.calculateAllomanticForce(obj)
+        direction = allomanticForce / np.linalg.norm(allomanticForce)
 
-        print(allomanticForce)
+        # Flip direction of force for pulling
+        if self.aSteel and not self.aIron:
+            allomanticForce *= -1
+        elif self.aSteel and self.aIron:  # If pushing and pulling on the same object, net zero force is exerted on the object
+            allomanticForce *= 0
 
-    def applyForce(self, force_x, force_y):
-        # Apply force based on mass
-        self.xVelocity += force_x / self.mass
-        self.yVelocity += force_y / self.mass
+        # Ensure force does not exceed maximum (don't know what we're doing with this yet so womp womp set it to a mill)
+        allomanticForce = functions.clampMagnitude(allomanticForce, 1_000_000)
+
+        relativeVelocity = functions.vectorProject(
+            obj.velocity-self.velocity, direction)
+        velocityFactor = 1 - \
+            np.exp(-np.linalg.norm(relativeVelocity) /
+                   IronSteelAllomancy.velocityConstant)
+
+        # Adds the "symmetrical" model from Invested by austin j taylor, should mean that pushes are weaker when object is moving away from allomancer, and vice versa
+        if np.dot(relativeVelocity, direction) > 0:
+            velocityFactor *= -1
+
+        # Calculate the anchored push boost
+        restitutionForceFromAllomancer = allomanticForce * velocityFactor
+        restitutionForceFromObj = allomanticForce * - velocityFactor
+
+        # Calculate the total force on the allomancer and the object
+        netForceOnAllomancer = allomanticForce + restitutionForceFromObj
+        netForceonObject = -allomanticForce + restitutionForceFromAllomancer
+
+        # Add the force to this frames force
+        self.netForceThisFrame += netForceOnAllomancer
+        obj.netForceThisFrame += netForceonObject
 
     def steelpush(self, objects):
         for obj in objects:
@@ -353,8 +428,10 @@ class PlayerSprite(pygame.sprite.Sprite):
                     forceX = forceMag * vector[0]
                     forceY = forceMag * vector[1]
 
-                    self.applyForce(-forceX, -forceY)
-                    obj.applyForce(forceX, forceY)
+                    force = np.array([forceX, forceY])
+
+                    self.addForce(-force)
+                    obj.addForce(force)
 
     def ironpull(self, objects):
         for obj in objects:
@@ -363,14 +440,16 @@ class PlayerSprite(pygame.sprite.Sprite):
                 inRange, vector, distance = self.objectInRange(obj)
                 aimedAt = self.objectInTargettingCone(vector)
                 if inRange and aimedAt:
-                    forceMag = self.push_force / distance
+                    forceMag = self.pull_force / distance
                     forceMag = min(forceMag, self.maxForce)
 
                     forceX = forceMag * vector[0]
                     forceY = forceMag * vector[1]
 
-                    self.applyForce(forceX, forceY)
-                    obj.applyForce(-forceX, -forceY)
+                    force = np.array([forceX, forceY])
+                    print(force)
+                    self.addForce(force)
+                    obj.addForce(-force)
 
                     # Smooth out the velocity when the object is close to the player
                     if distance < 10:  # Close enough to reduce speed
@@ -475,46 +554,34 @@ class PlayerSprite(pygame.sprite.Sprite):
         self.limitFeruchemy()
 
     def update(self):
-
         # Check if player is airborne and ensure flag is set correctly
         self.isAirborne = False if self.rect.y >= self.screenHeight - self.height else True
-        # Apply gravity
-        self.yVelocity += 1
 
-        # Ensure player is not moving faster than move speed limit
-        if self.xVelocity < 0:
-            self.xVelocity = max(self.xVelocity, -self.moveSpeedLimit)
-        elif self.xVelocity > 0:
-            self.xVelocity = min(self.xVelocity, self.moveSpeedLimit)
-        if self.yVelocity < 0:
-            self.yVelocity = max(self.yVelocity, -self.aerialMoveSpeedLimit)
-        elif self.yVelocity > 0:
-            self.yVelocity = min(self.yVelocity, self.aerialMoveSpeedLimit)
+        # Apply various forces
 
-        # Update horizontal position based on velocity
-        self.rect.x += int(self.xVelocity)
-        # Update vertical position
-        self.rect.y += int(self.yVelocity)
+        self.applyForce()
+        self.applyGravity()
+        self.clampVelocity()
+        self.updatePosition()
 
-        # Check for collision with ground
-        if self.rect.y >= self.screenHeight - self.height:
-            self.rect.y = self.screenHeight - self.height
-            self.yVelocity = 0
-            self.isAirborne = False
+        self.stopFallingAtGround()
 
         # Apply friction when grounded and pushing
-        if not self.isAirborne and self.aSteel:
-            self.xVelocity *= 0.9 * (1 / self.mass)  # Friction when grounded
-        else:
-            # Apply air resistance to horizontal and vertical velocities
-            self.xVelocity -= self.xVelocity * self.airResistanceCoeff
-            self.yVelocity -= self.yVelocity * self.airResistanceCoeff
+        # if not self.isAirborne and self.aSteel:
+        #     self.velocity[0] *= 0.9 * (1 / self.mass)  # Friction when grounded
+        # else:
+        #     # Apply air resistance to horizontal and vertical velocities
+        #     self.velocity[0] -= self.velocity[0] * self.airResistanceCoeff
+        #     self.velocity[1] -= self.velocity[1] * self.airResistanceCoeff
 
         screen_rect = pygame.Rect(0, 0, self.screenWidth, self.screenHeight)
         self.rect.clamp_ip(screen_rect)
 
         # Do feruchemy updates
         self.updateFeruchemy()
+
+        # Clear force this frame
+        self.netForceThisFrame *= 0
 
     def isPushPulling(self):
         return self.aSteel or self.aIron

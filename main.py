@@ -36,13 +36,11 @@ pygame.event.set_grab(True)
 all_sprites = pygame.sprite.Group()
 
 # Create player sprite
-playerSprite = PlayerSprite((255, 0, 0), 30, 20, WIDTH, HEIGHT)
-playerSprite.rect.x = 200
-playerSprite.rect.y = 300
+playerSprite = PlayerSprite(200, 300, (255, 0, 0), 30, 20, WIDTH, HEIGHT)
 
 # Create object sprites
 objectsGroup = pg.sprite.Group()
-objectsGroup.add(Object(400, 300, 20, 20,  WIDTH, HEIGHT, True, 0.5))
+objectsGroup.add(Object(400, 0, 20, 20,  WIDTH, HEIGHT, True, 0.5))
 objectsGroup.add(Object(500, 300, 20, 20, WIDTH, HEIGHT, True))
 objectsGroup.add(Object(600, 300, 20, 20, WIDTH, HEIGHT, True, 20))
 objectsGroup.add(Object(600, 400, 20, 20, WIDTH, HEIGHT, True, 2, True))
@@ -65,16 +63,22 @@ def doAllomancy():
 
     # New Method
 
-    if playerSprite.aSteel or playerSprite.aIron:
+    if playerSprite.aSteel:
         for obj in objectsGroup:
-            if obj.is_metallic:
-                playerSprite.calculateForce(obj)
+            if playerSprite.isValidTarget(obj):
+                playerSprite.calculateForce(obj, True)
+    if playerSprite.aIron:
+        for obj in objectsGroup:
+            if playerSprite.isValidTarget(obj):
+                playerSprite.calculateForce(obj, False)
 
 
 # Game loop
 running = True
 
 while running:
+    # print("New Frame")
+
     # Set max framerate to 60
     clock.tick(FRAMERATE_CAP)
 
@@ -155,11 +159,11 @@ while running:
     else:
         playerSprite.stop()  # Decelerate when no key is pressed
 
+    doAllomancy()
+
     # Draw all sprites
     all_sprites.update()
     all_sprites.draw(screen)
-
-    doAllomancy()
 
     # Draw player's aiming cone
     coneSurface = playerSprite.createAimingCone(WIDTH, HEIGHT)
@@ -173,5 +177,10 @@ while running:
                 pygame.draw.line(screen, (100, 200, 255) if (playerSprite.isPushPulling) and playerSprite.objectInTargettingCone(objVector) else (100, 100, 255),
                                  playerSprite.rect.center, obj.rect.center, 2)
 
+    for obj in objectsGroup:
+
+        print(obj.isPerfectlyAnchored, obj.velocity)
+
+    # print(playerSprite.velocity)
     # Render blitted objects to screen
     pygame.display.flip()
