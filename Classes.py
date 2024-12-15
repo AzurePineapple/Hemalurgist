@@ -33,6 +33,8 @@ class Entity(pygame.sprite.Sprite):
         self.isPerfectlyAnchored = perfectlyAnchored
         self.isAirborne = False
         self.deceleration = 1
+        self.frictionCoeff = 0.1  # Friction coefficient
+        self.dragCoeff = 0.1
 
         self.netForceThisFrame = np.array([0.0, 0.0])
 
@@ -77,6 +79,25 @@ class Entity(pygame.sprite.Sprite):
                 if self.velocity[0] > 0:  # Stop overshooting zero
                     self.velocity[0] = 0
 
+    def addFriction(self):
+        # Apply friction to the object's motion
+        if not self.isAirborne:
+            friction_force_x = - \
+                self.velocity[0] * self.frictionCoeff * self.mass
+
+            frictionForce = np.array([friction_force_x, 0])
+            
+            # Apply friction to the velocity
+            self.addForce(frictionForce)
+        else:
+            # Apply air resistance to horizontal and vertical velocities
+            if not np.allclose(self.velocity, 0.0):
+                dragForce = -1*self.dragCoeff * \
+                    np.linalg.norm(self.velocity)**2 * \
+                    (self.velocity/np.linalg.norm(self.velocity))
+
+                self.addForce(dragForce)
+
 
 class Object(Entity):
     def __init__(self, x, y, width, height, screenWidth, screenHeight, is_metallic=False, mass=1.0, perfectlyAnchored=False):
@@ -92,27 +113,17 @@ class Object(Entity):
 
         self.mass = mass
         self.magneticMass = mass
-        self.frictionCoeff = 0.1  # Friction coefficient
         self.maxVelocity = 10
         self.charge = math.pow(
             self.magneticMass, IronSteelAllomancy.chargePower)
         self.lastWasPushed = False
 
     def update(self):
-        # Apply friction to the object's motion
-        # if not self.isAirborne:
-        #     friction_force_x = - \
-        #         self.velocity[0] * self.frictionCoeff * self.mass
-        #     friction_force_y = - \
-        #         self.velocity[1] * self.frictionCoeff * self.mass
 
-        #     frictionForce = np.array([friction_force_x, friction_force_y])
-        #     # Apply friction to the velocity
-        #     self.applyForce(frictionForce)
-
-        self.applyForce()
-        self.applyGravity()
-        self.updatePosition()
+        self.addFriction()
+        self.applyForce()  # Applies all added forces to the velocity
+        self.applyGravity()  # Applies acceleration due to gravity to the velocity
+        self.updatePosition()  # Updates the positon according to the velocity
         self.stopFallingAtGround()
 
         # Clear force this frame
@@ -133,8 +144,7 @@ class PlayerSprite(Entity):
         # Player constants
 
         self.aerialMoveSpeedLimit = 30
-        self.airResistanceCoeff = 0.01
-        self.jumpForce = -50
+        self.jumpForce = -1000
         self.shortJumpCutoff = 0.3 * self.jumpForce
 
         self.jumpKeyHeld = False
@@ -169,7 +179,7 @@ class PlayerSprite(Entity):
         # All feruchemy related attributes
 
         # Iron
-        self.mass = self.baseMass = 2
+        self.mass = self.baseMass = 20
         # Steel
         self.moveSpeedLimit = self.baseMoveSpeedLimit = 10
         self.acceleration = self.baseAcceleration = self.moveSpeedLimit / 5
@@ -381,6 +391,7 @@ class PlayerSprite(Entity):
         obj.lastWasPushed = pushing
 
         allomanticForce = self.calculateAllomanticForce(obj)
+        # print(np.linalg.norm(allomanticForce))
         direction = allomanticForce / np.linalg.norm(allomanticForce)
 
         # Flip direction of force for pulling
@@ -559,6 +570,7 @@ class PlayerSprite(Entity):
 
         # Apply various forces
 
+        self.addFriction()
         self.applyForce()
         self.applyGravity()
         self.clampVelocity()
@@ -566,19 +578,14 @@ class PlayerSprite(Entity):
 
         self.stopFallingAtGround()
 
-        # Apply friction when grounded and pushing
-        # if not self.isAirborne and self.aSteel:
-        #     self.velocity[0] *= 0.9 * (1 / self.mass)  # Friction when grounded
-        # else:
-        #     # Apply air resistance to horizontal and vertical velocities
-        #     self.velocity[0] -= self.velocity[0] * self.airResistanceCoeff
-        #     self.velocity[1] -= self.velocity[1] * self.airResistanceCoeff
-
         screen_rect = pygame.Rect(0, 0, self.screenWidth, self.screenHeight)
-        self.rect.clamp_ip(screen_rect)
+        # self.rect.clamp_ip(screen_rect)
 
         # Do feruchemy updates
         self.updateFeruchemy()
+
+        # if self.netForceThisFrame.all() != np.array([0.0, 0.0]).all():
+        # print(self.netForceThisFrame)
 
         # Clear force this frame
         self.netForceThisFrame *= 0

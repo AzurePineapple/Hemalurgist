@@ -7,7 +7,7 @@ from Classes import PlayerSprite, Object
 
 # Define some global settings variables
 FRAMERATE_CAP = 60
-DISPLAY_FPS = True
+DISPLAY_FPS = True  
 
 
 # WIDTH = 1500
@@ -36,15 +36,15 @@ pygame.event.set_grab(True)
 all_sprites = pygame.sprite.Group()
 
 # Create player sprite
-playerSprite = PlayerSprite(200, 300, (255, 0, 0), 30, 20, WIDTH, HEIGHT)
+playerSprite = PlayerSprite(300, 500, (255, 0, 0), 30, 20, WIDTH, HEIGHT)
 
 # Create object sprites
 objectsGroup = pg.sprite.Group()
-objectsGroup.add(Object(400, 0, 20, 20,  WIDTH, HEIGHT, True, 0.5))
-objectsGroup.add(Object(500, 300, 20, 20, WIDTH, HEIGHT, True))
-objectsGroup.add(Object(600, 300, 20, 20, WIDTH, HEIGHT, True, 20))
-objectsGroup.add(Object(600, 400, 20, 20, WIDTH, HEIGHT, True, 2, True))
-objectsGroup.add(Object(800, 400, 20, 20, WIDTH, HEIGHT, True, 2, True))
+# objectsGroup.add(Object(400, 0, 20, 20,  WIDTH, HEIGHT, True, 0.5))
+# objectsGroup.add(Object(500, 300, 20, 20, WIDTH, HEIGHT, True))
+objectsGroup.add(Object(300, 500, 20, 20, WIDTH, HEIGHT, True, 20))
+# objectsGroup.add(Object(600, 400, 20, 20, WIDTH, HEIGHT, True, 2, True))
+# objectsGroup.add(Object(800, 400, 20, 20, WIDTH, HEIGHT, True, 2, True))
 
 
 all_sprites.add(playerSprite, *objectsGroup)
@@ -156,8 +156,8 @@ while running:
         playerSprite.moveLeft()
     elif keys[pygame.K_d]:
         playerSprite.moveRight()
-    else:
-        playerSprite.stop()  # Decelerate when no key is pressed
+    # else:
+    #     playerSprite.stop()  # Decelerate when no key is pressed
 
     doAllomancy()
 
@@ -177,10 +177,9 @@ while running:
                 pygame.draw.line(screen, (100, 200, 255) if (playerSprite.isPushPulling) and playerSprite.objectInTargettingCone(objVector) else (100, 100, 255),
                                  playerSprite.rect.center, obj.rect.center, 2)
 
-    for obj in objectsGroup:
+    # for obj in objectsGroup:
 
-        print(obj.isPerfectlyAnchored, obj.velocity)
+        # print(obj.netForceThisFrame)
 
-    # print(playerSprite.velocity)
     # Render blitted objects to screen
     pygame.display.flip()
